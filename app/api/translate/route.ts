@@ -32,9 +32,12 @@ export async function POST(request: NextRequest) {
       targetLang as deepl.TargetLanguageCode
     );
 
+    // translateText returns a single TextResult when given a single string
+    const translationResult = Array.isArray(result) ? result[0] : result;
+
     return NextResponse.json({
-      translatedText: result.text,
-      detectedSourceLang: result.detectedSourceLang,
+      translatedText: translationResult.text,
+      detectedSourceLang: translationResult.detectedSourceLang,
     });
   } catch (error) {
     console.error('Translation error:', error);

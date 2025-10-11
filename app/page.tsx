@@ -19,23 +19,52 @@ const languages = [
   { code: 'zh', label: 'Chinese', deeplCode: 'zh' },
 ];
 
+// Generate a random username
+const generateUsername = () => {
+  const adjectives = ['Happy', 'Cool', 'Swift', 'Smart', 'Bright', 'Brave', 'Kind', 'Calm', 'Bold', 'Quick'];
+  const nouns = ['Panda', 'Tiger', 'Eagle', 'Dolphin', 'Lion', 'Wolf', 'Bear', 'Fox', 'Hawk', 'Owl'];
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const number = Math.floor(Math.random() * 100);
+  return `${adjective}${noun}${number}`;
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('en-US');
-  const [currentUser, setCurrentUser] = useState('Liam');
+  const [currentUser, setCurrentUser] = useState('');
+  const [username, setUsername] = useState('');
+  const [isUsernameSet, setIsUsernameSet] = useState(false);
   const [ablyClient, setAblyClient] = useState<Ably.Realtime | null>(null);
   const [channel, setChannel] = useState<Ably.RealtimeChannel | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const ablyInitialized = useRef(false);
+
+  // Set initial username on mount
+  useEffect(() => {
+    const storedUsername = localStorage.getItem('chatUsername');
+    if (storedUsername) {
+      setCurrentUser(storedUsername);
+      setIsUsernameSet(true);
+    } else {
+      const randomName = generateUsername();
+      setUsername(randomName);
+    }
+  }, []);
 
   // Initialize Ably
   useEffect(() => {
-      // Note: In production, you should use token authentication
-      // For now, using a demo API key (replace with your own)
-      const client = new Ably.Realtime({
-        key: process.env.NEXT_PUBLIC_ABLY_API_KEY || 'demo-key',
-        clientId: currentUser,
-      });
+    if (!currentUser || ablyInitialized.current) return; // Don't initialize until username is set or if already initialized
+
+    ablyInitialized.current = true;
+
+    // Note: In production, you should use token authentication
+    // For now, using a demo API key (replace with your own)
+    const client = new Ably.Realtime({
+      key: process.env.NEXT_PUBLIC_ABLY_API_KEY || 'demo-key',
+      clientId: currentUser,
+    });
 
     const chatChannel = client.channels.get('chat-channel');
 
@@ -70,52 +99,12 @@ export default function Home() {
     setAblyClient(client);
     setChannel(chatChannel);
 
-    // Add some demo messages
-    const demoMessages: Message[] = [
-      {
-        id: '1',
-        sender: 'Sophia',
-        text: "Hey! How's it going?",
-        timestamp: Date.now() - 240000,
-      },
-      {
-        id: '2',
-        sender: 'Liam',
-        text: 'Not bad, just finished a workout. You?',
-        timestamp: Date.now() - 180000,
-      },
-      {
-        id: '3',
-        sender: 'Sophia',
-        text: 'Just chilling at home. Thinking of watching a movie later.',
-        timestamp: Date.now() - 120000,
-      },
-      {
-        id: '4',
-        sender: 'Liam',
-        text: 'Sounds fun! What are you thinking of watching?',
-        timestamp: Date.now() - 60000,
-      },
-      {
-        id: '5',
-        sender: 'Sophia',
-        text: 'Maybe a comedy? Something lighthearted.',
-        timestamp: Date.now() - 30000,
-      },
-      {
-        id: '6',
-        sender: 'Liam',
-        text: 'Nice! Any recommendations?',
-        timestamp: Date.now() - 10000,
-      },
-    ];
-    setMessages(demoMessages);
-
     return () => {
       chatChannel.unsubscribe();
       client.close();
+      ablyInitialized.current = false;
     };
-  }, []);
+  }, [currentUser]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -190,6 +179,63 @@ export default function Home() {
     }
   }, [selectedLanguage]);
 
+  const handleSetUsername = () => {
+    if (username.trim()) {
+      setCurrentUser(username.trim());
+      setIsUsernameSet(true);
+      localStorage.setItem('chatUsername', username.trim());
+    }
+  };
+
+  // Show username entry screen if not set
+  if (!isUsernameSet) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+          <div className="flex flex-col items-center mb-6">
+            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome to ChatterBox</h1>
+            <p className="text-gray-600 text-center">Choose a username to start chatting</p>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSetUsername()}
+                placeholder="Enter your username"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            
+            <button
+              onClick={handleSetUsername}
+              disabled={!username.trim()}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              Start Chatting
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            💡 Tip: Each person gets a unique identity for the chat
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
@@ -209,8 +255,11 @@ export default function Home() {
             <button className="text-gray-700 hover:text-gray-900 font-medium">Profile</button>
             <button className="text-gray-700 hover:text-gray-900 font-medium">Settings</button>
           </nav>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
-            {currentUser[0]}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 font-medium">{currentUser}</span>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
+              {currentUser[0]?.toUpperCase()}
+            </div>
           </div>
         </div>
       </header>
