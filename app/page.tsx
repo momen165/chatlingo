@@ -17,6 +17,7 @@ const languages = [
   { code: 'fr', label: 'French', deeplCode: 'fr' },
   { code: 'de', label: 'German', deeplCode: 'de' },
   { code: 'zh', label: 'Chinese', deeplCode: 'zh' },
+  { code: 'ar', label: 'Arabic', deeplCode: 'ar' },
 ];
 
 // Generate a random username
